@@ -1,4 +1,4 @@
-# week08/.github/workflows/frontend_ci.yml
+# week07/.github/workflows/frontend_ci.yml
 
 name: Frontend CI - Build & Push Image
 
@@ -18,7 +18,7 @@ on:
 env:
   # ACR Login Server (e.g., myregistry.azurecr.io)
   # This needs to be set as a GitHub Repository Secret
-  ACR_LOGIN_SERVER: ${{ secrets.AZURE_CONTAINER_REGISTRY }}
+  ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
   # Dynamically generate image tags based on Git SHA and GitHub Run ID
   # This provides unique, traceable tags for each image build
   IMAGE_TAG: ${{ github.sha }}-${{ github.run_id }}
