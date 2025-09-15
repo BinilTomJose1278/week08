@@ -6,15 +6,15 @@ on:
       aks_cluster_name:
         description: 'Name of the AKS Cluster to deploy to'
         required: true
-        default: '<aks_cluster_name>'
+        default: 'binilweek08aks2'
       aks_resource_group:
         description: 'Resource Group of the AKS Cluster'
         required: true
-        default: '<resource_group_name>'
+        default: 'rg-week08'
       aks_acr_name:
         description: 'Name of ACR'
         required: true
-        default: '<acr_name>'
+        default: 'binilweek08acr'
 
 jobs:
   deploy_backend:
