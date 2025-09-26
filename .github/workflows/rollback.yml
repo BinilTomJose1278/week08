@@ -64,13 +64,13 @@ jobs:
       - name: Rollback Product Service
         run: |
           echo "Rolling back Product Service to tag: ${{ inputs.rollback_to_tag }}"
-          kubectl set image deployment/product-service-w09e1 product-service-container=${{ env.ACR_LOGIN_SERVER }}/product_service:${{ inputs.rollback_to_tag }}
+          kubectl set image deployment/product-service-w09e1 product-service-container=${{ vars.ACR_NAME }}.azurecr.io/product_service:${{ inputs.rollback_to_tag }}
           kubectl rollout status deployment/product-service-w09e1 --timeout=300s
 
       - name: Rollback Order Service
         run: |
           echo "Rolling back Order Service to tag: ${{ inputs.rollback_to_tag }}"
-          kubectl set image deployment/order-service-w09e1 order-service-container=${{ env.ACR_LOGIN_SERVER }}/order_service:${{ inputs.rollback_to_tag }}
+          kubectl set image deployment/order-service-w09e1 order-service-container=${{ vars.ACR_NAME }}.azurecr.io/order_service:${{ inputs.rollback_to_tag }}
           kubectl rollout status deployment/order-service-w09e1 --timeout=300s
 
       - name: Verify Backend Rollback
@@ -113,7 +113,7 @@ jobs:
       - name: Rollback Frontend
         run: |
           echo "Rolling back Frontend to tag: ${{ inputs.rollback_to_tag }}"
-          kubectl set image deployment/frontend frontend-container=${{ env.ACR_LOGIN_SERVER }}/frontend:${{ inputs.rollback_to_tag }}
+          kubectl set image deployment/frontend frontend-container=${{ vars.ACR_NAME }}.azurecr.io/frontend:${{ inputs.rollback_to_tag }}
           kubectl rollout status deployment/frontend --timeout=300s
 
       - name: Verify Frontend Rollback

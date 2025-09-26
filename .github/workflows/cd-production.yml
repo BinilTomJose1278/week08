@@ -39,28 +39,28 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Login to Azure Container Registry
-        run: az acr login --name ${{ env.ACR_LOGIN_SERVER }}
+        run: az acr login --name ${{ vars.ACR_NAME }}
 
       - name: Build and Push Product Service Image
         run: |
-          docker build -t ${{ env.ACR_LOGIN_SERVER }}/product_service:prod-${{ env.IMAGE_TAG }} ./backend/product_service/
-          docker build -t ${{ env.ACR_LOGIN_SERVER }}/product_service:latest ./backend/product_service/
-          docker push ${{ env.ACR_LOGIN_SERVER }}/product_service:prod-${{ env.IMAGE_TAG }}
-          docker push ${{ env.ACR_LOGIN_SERVER }}/product_service:latest
+          docker build -t ${{ vars.ACR_NAME }}.azurecr.io/product_service:prod-${{ env.IMAGE_TAG }} ./backend/product_service/
+          docker build -t ${{ vars.ACR_NAME }}.azurecr.io/product_service:latest ./backend/product_service/
+          docker push ${{ vars.ACR_NAME }}.azurecr.io/product_service:prod-${{ env.IMAGE_TAG }}
+          docker push ${{ vars.ACR_NAME }}.azurecr.io/product_service:latest
 
       - name: Build and Push Order Service Image
         run: |
-          docker build -t ${{ env.ACR_LOGIN_SERVER }}/order_service:prod-${{ env.IMAGE_TAG }} ./backend/order_service/
-          docker build -t ${{ env.ACR_LOGIN_SERVER }}/order_service:latest ./backend/order_service/
-          docker push ${{ env.ACR_LOGIN_SERVER }}/order_service:prod-${{ env.IMAGE_TAG }}
-          docker push ${{ env.ACR_LOGIN_SERVER }}/order_service:latest
+          docker build -t ${{ vars.ACR_NAME }}.azurecr.io/order_service:prod-${{ env.IMAGE_TAG }} ./backend/order_service/
+          docker build -t ${{ vars.ACR_NAME }}.azurecr.io/order_service:latest ./backend/order_service/
+          docker push ${{ vars.ACR_NAME }}.azurecr.io/order_service:prod-${{ env.IMAGE_TAG }}
+          docker push ${{ vars.ACR_NAME }}.azurecr.io/order_service:latest
 
       - name: Build and Push Frontend Image
         run: |
-          docker build -t ${{ env.ACR_LOGIN_SERVER }}/frontend:prod-${{ env.IMAGE_TAG }} ./frontend/
-          docker build -t ${{ env.ACR_LOGIN_SERVER }}/frontend:latest ./frontend/
-          docker push ${{ env.ACR_LOGIN_SERVER }}/frontend:prod-${{ env.IMAGE_TAG }}
-          docker push ${{ env.ACR_LOGIN_SERVER }}/frontend:latest
+          docker build -t ${{ vars.ACR_NAME }}.azurecr.io/frontend:prod-${{ env.IMAGE_TAG }} ./frontend/
+          docker build -t ${{ vars.ACR_NAME }}.azurecr.io/frontend:latest ./frontend/
+          docker push ${{ vars.ACR_NAME }}.azurecr.io/frontend:prod-${{ env.IMAGE_TAG }}
+          docker push ${{ vars.ACR_NAME }}.azurecr.io/frontend:latest
 
       - name: Logout from Azure
         run: az logout
