@@ -106,7 +106,12 @@ jobs:
           docker push wk09cacrbinil.azurecr.io/order_service:dev-latest
 
       - name: Logout from Azure
-        run: az logout
+        run: |
+          if az account show >/dev/null 2>&1; then
+            az logout
+          else
+            echo "No active Azure session to logout from"
+          fi
         if: always()
 
   # Frontend Building
@@ -133,7 +138,12 @@ jobs:
           docker push wk09cacrbinil.azurecr.io/frontend:dev-latest
 
       - name: Logout from Azure
-        run: az logout
+        run: |
+          if az account show >/dev/null 2>&1; then
+            az logout
+          else
+            echo "No active Azure session to logout from"
+          fi
         if: always()
 
   # Deploy to Staging Environment
