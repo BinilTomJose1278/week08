@@ -153,8 +153,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Azure Environment
-        uses: ./.github/workflows/shared-actions.yml
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Setup Kubernetes Context
+        run: |
+          az aks get-credentials --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} --name ${{ secrets.AKS_CLUSTER_NAME }} --overwrite-existing
 
       - name: Deploy Backend Infrastructure to Staging
         run: |
@@ -181,8 +187,8 @@ jobs:
         id: get-backend-ips
         run: |
           echo "Getting backend service IPs..."
-          PRODUCT_IP=$(kubectl get service product-service-w08e1 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-          ORDER_IP=$(kubectl get service order-service-w08e1 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          PRODUCT_IP=$(kubectl get service product-service-w09e1 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          ORDER_IP=$(kubectl get service order-service-w09e1 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
           
           # Wait for IPs to be assigned
           for i in $(seq 1 60); do
