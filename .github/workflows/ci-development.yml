@@ -182,15 +182,15 @@ jobs:
           kubectl get pods -n $K8S_NS
           kubectl get events -n $K8S_NS --sort-by=.lastTimestamp | tail -20
 
-          kubectl rollout status deploy/product-service -n $K8S_NS --timeout=300s
-          kubectl rollout status deploy/order-service   -n $K8S_NS --timeout=300s
+          kubectl rollout status deploy/product-service-w09e1 -n $K8S_NS --timeout=300s
+          kubectl rollout status deploy/order-service-w09e1   -n $K8S_NS --timeout=300s
 
       - name: Get backend ClusterIP/External IPs
         id: get-backend-ips
         run: |
           # if your product/order services are ClusterIP, leave as ClusterIP references
-          PRODUCT_HOST="http://product-service.$K8S_NS.svc.cluster.local:8000"
-          ORDER_HOST="http://order-service.$K8S_NS.svc.cluster.local:8001"
+          PRODUCT_HOST="http://product-service-w09e1.$K8S_NS.svc.cluster.local:8000"
+          ORDER_HOST="http://order-service-w09e1.$K8S_NS.svc.cluster.local:8001"
 
           echo "product_ip=${PRODUCT_HOST}" >> $GITHUB_OUTPUT
           echo "order_ip=${ORDER_HOST}"   >> $GITHUB_OUTPUT
@@ -212,13 +212,13 @@ jobs:
 
       - name: Wait for frontend
         run: |
-          kubectl rollout status deploy/frontend -n $K8S_NS --timeout=300s
-          kubectl get svc frontend -n $K8S_NS -o wide
+          kubectl rollout status deploy/frontend-w09e1 -n $K8S_NS --timeout=300s
+          kubectl get svc frontend-w09e1 -n $K8S_NS -o wide
 
       - name: Smoke checks
         run: |
           # If frontend is a LoadBalancer:
-          FRONTEND_IP=$(kubectl get svc frontend -n $K8S_NS -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          FRONTEND_IP=$(kubectl get svc frontend-w09e1 -n $K8S_NS -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
           echo "Frontend at: http://$FRONTEND_IP"
           # basic health checks via backends
           curl -f ${{ steps.get-backend-ips.outputs.product_ip }}/health
