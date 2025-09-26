@@ -152,6 +152,10 @@ jobs:
         run: |
           az aks get-credentials --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} --name ${{ secrets.AKS_CLUSTER_NAME }} --overwrite-existing
 
+      - name: Ensure namespace exists
+        run: |
+          kubectl get namespace $K8S_NS >/dev/null 2>&1 || kubectl create namespace $K8S_NS
+
       - name: Verify ACR images
         run: |
           az acr repository list --name $ACR_NAME --output table
