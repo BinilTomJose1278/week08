@@ -3,7 +3,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: order-service-w08e1 # Deployment name matches
+  name: order-service-w09e1 # Deployment name matches
   labels:
     app: order-service
 spec:
@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: order-service-container
-        image: binilweek08acr.azurecr.io/order_service:latest
+        image: wk09acrbinil.azurecr.io/order_service:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8000
@@ -49,7 +49,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: order-service-w08e1
+  name: order-service-w09e1
   labels:
     app: order-service
 spec:

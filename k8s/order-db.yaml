@@ -41,7 +41,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: order-db-service-w08e1 # Internal DNS name for the Order DB
+  name: order-db-service-w09e1 # Internal DNS name for the Order DB
   labels:
     app: order-db
 spec:

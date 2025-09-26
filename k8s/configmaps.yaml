@@ -3,7 +3,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: ecomm-config-w08e1
+  name: ecomm-config-w09e1
 data:
   # Database Names
   PRODUCTS_DB_NAME: products

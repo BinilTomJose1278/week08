@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: frontend-container
-        image:  binilweek08acr.azurecr.io/frontend:latest
+        image:  wk09acrbinil.azurecr.io/frontend:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 80
@@ -26,7 +26,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: frontend-w08e1 # Service name matches
+  name: frontend-w09e1 # Service name matches
   labels:
     app: frontend
 spec:

@@ -1,0 +1,157 @@
+# Rollback Workflow for Emergency Situations
+name: Emergency Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to rollback'
+        required: true
+        type: choice
+        options:
+          - production
+          - staging
+      rollback_to_tag:
+        description: 'Image tag to rollback to (e.g., prod-abc123-456)'
+        required: true
+        type: string
+      confirm_rollback:
+        description: 'Type "ROLLBACK" to confirm'
+        required: true
+        type: string
+
+env:
+  ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+
+jobs:
+  validate-rollback:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate Rollback Confirmation
+        run: |
+          if [ "${{ inputs.confirm_rollback }}" != "ROLLBACK" ]; then
+            echo "❌ Rollback not confirmed. Please type 'ROLLBACK' to confirm."
+            exit 1
+          fi
+          echo "✅ Rollback confirmed for ${{ inputs.environment }} environment"
+
+      - name: Validate Image Tag
+        run: |
+          if [[ ! "${{ inputs.rollback_to_tag }}" =~ ^(prod|dev)-[a-f0-9]+-[0-9]+$ ]]; then
+            echo "❌ Invalid image tag format. Expected format: prod-abc123-456 or dev-abc123-456"
+            exit 1
+          fi
+          echo "✅ Image tag format is valid: ${{ inputs.rollback_to_tag }}"
+
+  rollback-backend:
+    runs-on: ubuntu-latest
+    needs: validate-rollback
+    environment: ${{ inputs.environment == 'production' && 'Production' || 'Staging' }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Setup Kubernetes Context
+        run: |
+          az aks get-credentials --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} --name ${{ secrets.AKS_CLUSTER_NAME }} --overwrite-existing
+
+      - name: Rollback Product Service
+        run: |
+          echo "Rolling back Product Service to tag: ${{ inputs.rollback_to_tag }}"
+          kubectl set image deployment/product-service-w09e1 product-service-container=${{ env.ACR_LOGIN_SERVER }}/product_service:${{ inputs.rollback_to_tag }}
+          kubectl rollout status deployment/product-service-w09e1 --timeout=300s
+
+      - name: Rollback Order Service
+        run: |
+          echo "Rolling back Order Service to tag: ${{ inputs.rollback_to_tag }}"
+          kubectl set image deployment/order-service-w09e1 order-service-container=${{ env.ACR_LOGIN_SERVER }}/order_service:${{ inputs.rollback_to_tag }}
+          kubectl rollout status deployment/order-service-w09e1 --timeout=300s
+
+      - name: Verify Backend Rollback
+        run: |
+          echo "Verifying backend services after rollback..."
+          sleep 30
+          
+          # Get service IPs
+          PRODUCT_IP=$(kubectl get service product-service-w09e1 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          ORDER_IP=$(kubectl get service order-service-w09e1 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          
+          # Health checks
+          curl -f http://$PRODUCT_IP:8000/health || exit 1
+          curl -f http://$ORDER_IP:8001/health || exit 1
+          
+          echo "✅ Backend rollback successful"
+
+      - name: Logout from Azure
+        run: az logout
+        if: always()
+
+  rollback-frontend:
+    runs-on: ubuntu-latest
+    needs: [validate-rollback, rollback-backend]
+    environment: ${{ inputs.environment == 'production' && 'Production' || 'Staging' }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Setup Kubernetes Context
+        run: |
+          az aks get-credentials --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} --name ${{ secrets.AKS_CLUSTER_NAME }} --overwrite-existing
+
+      - name: Rollback Frontend
+        run: |
+          echo "Rolling back Frontend to tag: ${{ inputs.rollback_to_tag }}"
+          kubectl set image deployment/frontend frontend-container=${{ env.ACR_LOGIN_SERVER }}/frontend:${{ inputs.rollback_to_tag }}
+          kubectl rollout status deployment/frontend --timeout=300s
+
+      - name: Verify Frontend Rollback
+        run: |
+          echo "Verifying frontend after rollback..."
+          sleep 30
+          
+          # Get frontend IP
+          FRONTEND_IP=$(kubectl get service frontend-w09e1 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          
+          # Health check
+          curl -f http://$FRONTEND_IP || exit 1
+          
+          echo "✅ Frontend rollback successful"
+          echo "Frontend available at: http://$FRONTEND_IP"
+
+      - name: Logout from Azure
+        run: az logout
+        if: always()
+
+  rollback-summary:
+    runs-on: ubuntu-latest
+    needs: [rollback-backend, rollback-frontend]
+    if: always()
+    
+    steps:
+      - name: Rollback Summary
+        run: |
+          if [ "${{ needs.rollback-backend.result }}" == "success" ] && [ "${{ needs.rollback-frontend.result }}" == "success" ]; then
+            echo "🎉 Rollback Completed Successfully!"
+            echo "=================================="
+            echo "Environment: ${{ inputs.environment }}"
+            echo "Rolled back to tag: ${{ inputs.rollback_to_tag }}"
+            echo "Rollback completed at: $(date)"
+            echo "=================================="
+          else
+            echo "❌ Rollback Failed!"
+            echo "Backend rollback: ${{ needs.rollback-backend.result }}"
+            echo "Frontend rollback: ${{ needs.rollback-frontend.result }}"
+            exit 1
+          fi

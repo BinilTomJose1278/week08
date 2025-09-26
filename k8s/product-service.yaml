@@ -3,7 +3,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: product-service-w08e1
+  name: product-service-w09e1
   labels:
     app: product-service
 spec:
@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: product-service-container
-        image:  binilweek08acr.azurecr.io/product_service:latest
+        image:  wk09acrbinil.azurecr.io/product_service:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8000
@@ -65,7 +65,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: product-service-w08e1
+  name: product-service-w09e1
   labels:
     app: product-service
 spec:

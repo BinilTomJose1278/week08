@@ -41,7 +41,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: product-db-service-w08e1 # Internal DNS name for the Product DB
+  name: product-db-service-w09e1 # Internal DNS name for the Product DB
   labels:
     app: product-db
 spec:

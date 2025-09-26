@@ -1,0 +1,246 @@
+# CI Pipeline for Development Branch
+name: CI - Development Branch
+
+on:
+  push:
+    branches: [ development ]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - '.github/workflows/ci-development.yml'
+
+env:
+  ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+  IMAGE_TAG: ${{ github.sha }}-${{ github.run_id }}
+
+jobs:
+  # Backend Services Testing and Building
+  test-and-build-backend:
+    runs-on: ubuntu-latest
+    if: contains(github.event.head_commit.modified, 'backend/') || contains(github.event.head_commit.added, 'backend/')
+    
+    services:
+      product_db:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: products
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      order_db:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: orders
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          for req in backend/*/requirements.txt; do
+            echo "Installing $req"
+            pip install -r "$req"
+          done
+          pip install pytest httpx
+
+      - name: Run Product Service Tests
+        working-directory: backend/product_service
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_DB: products
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        run: |
+          pytest tests --maxfail=1 --disable-warnings -q
+
+      - name: Run Order Service Tests
+        working-directory: backend/order_service
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5433
+          POSTGRES_DB: orders
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        run: |
+          pytest tests --maxfail=1 --disable-warnings -q
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to Azure Container Registry
+        run: az acr login --name ${{ env.ACR_LOGIN_SERVER }}
+
+      - name: Build and Push Product Service Image
+        run: |
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/product_service:dev-${{ env.IMAGE_TAG }} ./backend/product_service/
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/product_service:dev-latest ./backend/product_service/
+          docker push ${{ env.ACR_LOGIN_SERVER }}/product_service:dev-${{ env.IMAGE_TAG }}
+          docker push ${{ env.ACR_LOGIN_SERVER }}/product_service:dev-latest
+
+      - name: Build and Push Order Service Image
+        run: |
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/order_service:dev-${{ env.IMAGE_TAG }} ./backend/order_service/
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/order_service:dev-latest ./backend/order_service/
+          docker push ${{ env.ACR_LOGIN_SERVER }}/order_service:dev-${{ env.IMAGE_TAG }}
+          docker push ${{ env.ACR_LOGIN_SERVER }}/order_service:dev-latest
+
+      - name: Logout from Azure
+        run: az logout
+        if: always()
+
+  # Frontend Building
+  build-frontend:
+    runs-on: ubuntu-latest
+    if: contains(github.event.head_commit.modified, 'frontend/') || contains(github.event.head_commit.added, 'frontend/')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to Azure Container Registry
+        run: az acr login --name ${{ env.ACR_LOGIN_SERVER }}
+
+      - name: Build and Push Frontend Image
+        run: |
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/frontend:dev-${{ env.IMAGE_TAG }} ./frontend/
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/frontend:dev-latest ./frontend/
+          docker push ${{ env.ACR_LOGIN_SERVER }}/frontend:dev-${{ env.IMAGE_TAG }}
+          docker push ${{ env.ACR_LOGIN_SERVER }}/frontend:dev-latest
+
+      - name: Logout from Azure
+        run: az logout
+        if: always()
+
+  # Deploy to Staging Environment
+  deploy-to-staging:
+    runs-on: ubuntu-latest
+    needs: [test-and-build-backend, build-frontend]
+    if: always() && (needs.test-and-build-backend.result == 'success' || needs.build-frontend.result == 'success')
+    environment: Staging
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Azure Environment
+        uses: ./.github/workflows/shared-actions.yml
+
+      - name: Deploy Backend Infrastructure to Staging
+        run: |
+          echo "Deploying backend infrastructure to staging..."
+          cd k8s/
+          # Update image tags for staging
+          sed -i "s|image: .*product_service:.*|image: ${{ vars.ACR_NAME }}.azurecr.io/product_service:dev-latest|g" product-service.yaml
+          sed -i "s|image: .*order_service:.*|image: ${{ vars.ACR_NAME }}.azurecr.io/order_service:dev-latest|g" order-service.yaml
+          
+          kubectl apply -f configmaps.yaml
+          kubectl apply -f secrets.yaml
+          kubectl apply -f product-db.yaml
+          kubectl apply -f order-db.yaml
+          kubectl apply -f product-service.yaml
+          kubectl apply -f order-service.yaml
+
+      - name: Wait for Backend Services
+        run: |
+          echo "Waiting for backend services to be ready..."
+          kubectl wait --for=condition=available --timeout=300s deployment/product-service-w09e1
+          kubectl wait --for=condition=available --timeout=300s deployment/order-service-w09e1
+
+      - name: Get Backend Service IPs
+        id: get-backend-ips
+        run: |
+          echo "Getting backend service IPs..."
+          PRODUCT_IP=$(kubectl get service product-service-w08e1 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          ORDER_IP=$(kubectl get service order-service-w08e1 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          
+          # Wait for IPs to be assigned
+          for i in $(seq 1 60); do
+            if [[ -n "$PRODUCT_IP" && -n "$ORDER_IP" ]]; then
+              break
+            fi
+            sleep 5
+            PRODUCT_IP=$(kubectl get service product-service-w09e1 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+            ORDER_IP=$(kubectl get service order-service-w09e1 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          done
+          
+          echo "product_ip=http://$PRODUCT_IP:8000" >> $GITHUB_OUTPUT
+          echo "order_ip=http://$ORDER_IP:8001" >> $GITHUB_OUTPUT
+
+      - name: Deploy Frontend to Staging
+        run: |
+          echo "Deploying frontend to staging..."
+          # Update frontend configuration with backend IPs
+          sed -i "s|_PRODUCT_API_URL_|${{ steps.get-backend-ips.outputs.product_ip }}|g" frontend/main.js
+          sed -i "s|_ORDER_API_URL_|${{ steps.get-backend-ips.outputs.order_ip }}|g" frontend/main.js
+          
+          # Build and push updated frontend
+          docker build -t ${{ vars.ACR_NAME }}.azurecr.io/frontend:dev-latest ./frontend/
+          docker push ${{ vars.ACR_NAME }}.azurecr.io/frontend:dev-latest
+          
+          # Update and deploy frontend
+          sed -i "s|image: .*frontend:.*|image: ${{ vars.ACR_NAME }}.azurecr.io/frontend:dev-latest|g" k8s/frontend.yaml
+          kubectl apply -f k8s/frontend.yaml
+
+      - name: Run Integration Tests
+        run: |
+          echo "Running integration tests against staging environment..."
+          # Wait for frontend to be ready
+          kubectl wait --for=condition=available --timeout=300s deployment/frontend
+          
+          # Get frontend IP
+          FRONTEND_IP=$(kubectl get service frontend-w09e1 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          echo "Frontend available at: http://$FRONTEND_IP"
+          
+          # Basic health checks
+          sleep 30  # Wait for services to be fully ready
+          
+          # Test product service
+          curl -f http://${{ steps.get-backend-ips.outputs.product_ip }}/health || exit 1
+          echo "Product service health check passed"
+          
+          # Test order service  
+          curl -f http://${{ steps.get-backend-ips.outputs.order_ip }}/health || exit 1
+          echo "Order service health check passed"
+
+      - name: Notify Deployment Status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Staging deployment successful!"
+            echo "Frontend: http://$(kubectl get service frontend-w09e1 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')"
+            echo "Product API: ${{ steps.get-backend-ips.outputs.product_ip }}"
+            echo "Order API: ${{ steps.get-backend-ips.outputs.order_ip }}"
+          else
+            echo "❌ Staging deployment failed!"
+          fi
