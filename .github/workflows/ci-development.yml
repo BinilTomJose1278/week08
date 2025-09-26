@@ -1,4 +1,4 @@
-# CI Pipeline for Development Branch
+# .github/workflows/ci-development.yml
 name: CI - Development Branch
 
 on:
@@ -6,14 +6,15 @@ on:
     branches: [ development ]
 
 env:
-  ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+  ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}   # wk09cacrbinil.azurecr.io
   IMAGE_TAG: ${{ github.sha }}-${{ github.run_id }}
+  K8S_NS: ecommerce
+  ACR_NAME: wk09cacrbinil
 
 jobs:
-  # Backend Services Testing and Building
   test-and-build-backend:
     runs-on: ubuntu-latest
-    
+
     services:
       product_db:
         image: postgres:15
@@ -28,23 +29,22 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
-      
       order_db:
         image: postgres:15
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: orders
-        ports:
-          - 5433:5432
         options: >-
           --health-cmd "pg_isready -U postgres"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+        ports:
+          - 5433:5432
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Python 3.10
@@ -52,7 +52,7 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install dependencies
+      - name: Install deps
         run: |
           pip install --upgrade pip
           for req in backend/*/requirements.txt; do
@@ -61,7 +61,7 @@ jobs:
           done
           pip install pytest httpx
 
-      - name: Run Product Service Tests
+      - name: Test Product Service
         working-directory: backend/product_service
         env:
           POSTGRES_HOST: localhost
@@ -69,10 +69,9 @@ jobs:
           POSTGRES_DB: products
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-        run: |
-          pytest tests --maxfail=1 --disable-warnings -q
+        run: pytest tests --maxfail=1 --disable-warnings -q
 
-      - name: Run Order Service Tests
+      - name: Test Order Service
         working-directory: backend/order_service
         env:
           POSTGRES_HOST: localhost
@@ -80,215 +79,144 @@ jobs:
           POSTGRES_DB: orders
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-        run: |
-          pytest tests --maxfail=1 --disable-warnings -q
+        run: pytest tests --maxfail=1 --disable-warnings -q
 
       - name: Azure Login
-        uses: azure/login@v1
+        uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Login to Azure Container Registry
-        run: az acr login --name wk09cacrbinil
+      - name: Login to ACR (Azure AD)
+        run: az acr login --name $ACR_NAME
 
-      - name: Build and Push Product Service Image
+      - name: Build & Push Product Service
         run: |
-          DOCKER_BUILDKIT=0 docker build -t wk09cacrbinil.azurecr.io/product_service:dev-${{ env.IMAGE_TAG }} ./backend/product_service/
-          DOCKER_BUILDKIT=0 docker build -t wk09cacrbinil.azurecr.io/product_service:dev-latest ./backend/product_service/
-          docker push wk09cacrbinil.azurecr.io/product_service:dev-${{ env.IMAGE_TAG }}
-          docker push wk09cacrbinil.azurecr.io/product_service:dev-latest
+          DOCKER_BUILDKIT=0 docker build -t $ACR_LOGIN_SERVER/product_service:dev-${{ env.IMAGE_TAG }} ./backend/product_service/
+          DOCKER_BUILDKIT=0 docker build -t $ACR_LOGIN_SERVER/product_service:dev-latest ./backend/product_service/
+          docker push $ACR_LOGIN_SERVER/product_service:dev-${{ env.IMAGE_TAG }}
+          docker push $ACR_LOGIN_SERVER/product_service:dev-latest
 
-      - name: Build and Push Order Service Image
+      - name: Build & Push Order Service
         run: |
-          DOCKER_BUILDKIT=0 docker build -t wk09cacrbinil.azurecr.io/order_service:dev-${{ env.IMAGE_TAG }} ./backend/order_service/
-          DOCKER_BUILDKIT=0 docker build -t wk09cacrbinil.azurecr.io/order_service:dev-latest ./backend/order_service/
-          docker push wk09cacrbinil.azurecr.io/order_service:dev-${{ env.IMAGE_TAG }}
-          docker push wk09cacrbinil.azurecr.io/order_service:dev-latest
+          DOCKER_BUILDKIT=0 docker build -t $ACR_LOGIN_SERVER/order_service:dev-${{ env.IMAGE_TAG }} ./backend/order_service/
+          DOCKER_BUILDKIT=0 docker build -t $ACR_LOGIN_SERVER/order_service:dev-latest ./backend/order_service/
+          docker push $ACR_LOGIN_SERVER/order_service:dev-${{ env.IMAGE_TAG }}
+          docker push $ACR_LOGIN_SERVER/order_service:dev-latest
 
-      - name: Logout from Azure
-        run: |
-          if az account show >/dev/null 2>&1; then
-            az logout
-          else
-            echo "No active Azure session to logout from"
-          fi
+      - name: Azure Logout
         if: always()
+        run: |
+          az logout || true
 
-  # Frontend Building
   build-frontend:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Azure Login
-        uses: azure/login@v1
+        uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Build and Push Frontend Image
-        run: |
-          # Enable ACR admin access temporarily
-          az acr update --name wk09cacrbinil --admin-enabled true
-          
-          # Get ACR credentials
-          ACR_USERNAME=$(az acr credential show --name wk09cacrbinil --query "username" -o tsv)
-          ACR_PASSWORD=$(az acr credential show --name wk09cacrbinil --query "passwords[0].value" -o tsv)
-          
-          # Login to Docker using ACR credentials
-          echo $ACR_PASSWORD | docker login wk09cacrbinil.azurecr.io --username $ACR_USERNAME --password-stdin
-          
-          # Build and push images
-          DOCKER_BUILDKIT=0 docker build -t wk09cacrbinil.azurecr.io/frontend:dev-${{ env.IMAGE_TAG }} ./frontend/
-          DOCKER_BUILDKIT=0 docker build -t wk09cacrbinil.azurecr.io/frontend:dev-latest ./frontend/
-          docker push wk09cacrbinil.azurecr.io/frontend:dev-${{ env.IMAGE_TAG }}
-          docker push wk09cacrbinil.azurecr.io/frontend:dev-latest
+      - name: Login to ACR (Azure AD)
+        run: az acr login --name $ACR_NAME
 
-      - name: Logout from Azure
+      - name: Build & Push Frontend
         run: |
-          if az account show >/dev/null 2>&1; then
-            az logout
-          else
-            echo "No active Azure session to logout from"
-          fi
+          DOCKER_BUILDKIT=0 docker build -t $ACR_LOGIN_SERVER/frontend:dev-${{ env.IMAGE_TAG }} ./frontend/
+          DOCKER_BUILDKIT=0 docker build -t $ACR_LOGIN_SERVER/frontend:dev-latest ./frontend/
+          docker push $ACR_LOGIN_SERVER/frontend:dev-${{ env.IMAGE_TAG }}
+          docker push $ACR_LOGIN_SERVER/frontend:dev-latest
+
+      - name: Azure Logout
         if: always()
+        run: |
+          az logout || true
 
-  # Deploy to Staging Environment
   deploy-to-staging:
     runs-on: ubuntu-latest
     needs: [test-and-build-backend, build-frontend]
-    environment: Staging
-    
+    environment: staging   # <-- must match your environment name exactly
+
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Azure Login
-        uses: azure/login@v1
+        uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Setup Kubernetes Context
+      - name: AKS context (staging)
         run: |
           az aks get-credentials --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} --name ${{ secrets.AKS_CLUSTER_NAME }} --overwrite-existing
-          
-      - name: Verify ACR Images
-        run: |
-          echo "Checking if images exist in ACR..."
-          az acr repository list --name wk09cacrbinil --output table
-          echo "Product service images:"
-          az acr repository show-tags --name wk09cacrbinil --repository product_service --output table
-          echo "Order service images:"
-          az acr repository show-tags --name wk09cacrbinil --repository order_service --output table
 
-      - name: Deploy Backend Infrastructure to Staging
+      - name: Verify ACR images
         run: |
-          echo "Deploying backend infrastructure to staging..."
+          az acr repository list --name $ACR_NAME --output table
+          az acr repository show-tags --name $ACR_NAME --repository product_service --output table
+          az acr repository show-tags --name $ACR_NAME --repository order_service --output table
+          az acr repository show-tags --name $ACR_NAME --repository frontend --output table
+
+      - name: Deploy backend (staging)
+        run: |
           cd k8s/
-          # Update image tags for staging
-          sed -i "s|image: .*product_service:.*|image: wk09cacrbinil.azurecr.io/product_service:dev-latest|g" product-service.yaml
-          sed -i "s|image: .*order_service:.*|image: wk09cacrbinil.azurecr.io/order_service:dev-latest|g" order-service.yaml
-          
-          kubectl apply -f configmaps.yaml
-          kubectl apply -f secrets.yaml
-          kubectl apply -f product-db.yaml
-          kubectl apply -f order-db.yaml
-          kubectl apply -f product-service.yaml
-          kubectl apply -f order-service.yaml
+          # point to dev-latest
+          sed -i "s|image: .*product_service:.*|image: $ACR_LOGIN_SERVER/product_service:dev-latest|g" product-service.yaml
+          sed -i "s|image: .*order_service:.*|image: $ACR_LOGIN_SERVER/order_service:dev-latest|g" order-service.yaml
 
-      - name: Wait for Backend Services
+          kubectl apply -f configmaps.yaml -n $K8S_NS
+          kubectl apply -f secrets.yaml -n $K8S_NS
+          kubectl apply -f product-db.yaml -n $K8S_NS
+          kubectl apply -f order-db.yaml -n $K8S_NS
+          kubectl apply -f product-service.yaml -n $K8S_NS
+          kubectl apply -f order-service.yaml -n $K8S_NS
+
+      - name: Wait for backend deployments
         run: |
-          echo "Waiting for backend services to be ready..."
-          
-          # Check pod status first
-          echo "Checking pod status..."
-          kubectl get pods -l app=product-service
-          kubectl get pods -l app=order-service
-          
-          # Check for any error events
-          echo "Checking for error events..."
-          kubectl get events --sort-by=.lastTimestamp | tail -10
-          
-          # Wait for deployments with better error handling
-          echo "Waiting for product service..."
-          kubectl wait --for=condition=available --timeout=300s deployment/product-service-w09e1 || {
-            echo "Product service deployment failed. Checking logs..."
-            kubectl logs -l app=product-service --tail=50
-            exit 1
-          }
-          
-          echo "Waiting for order service..."
-          kubectl wait --for=condition=available --timeout=300s deployment/order-service-w09e1 || {
-            echo "Order service deployment failed. Checking logs..."
-            kubectl logs -l app=order-service --tail=50
-            exit 1
-          }
+          kubectl get pods -n $K8S_NS
+          kubectl get events -n $K8S_NS --sort-by=.lastTimestamp | tail -20
 
-      - name: Get Backend Service IPs
+          kubectl rollout status deploy/product-service -n $K8S_NS --timeout=300s
+          kubectl rollout status deploy/order-service   -n $K8S_NS --timeout=300s
+
+      - name: Get backend ClusterIP/External IPs
         id: get-backend-ips
         run: |
-          echo "Getting backend service IPs..."
-          PRODUCT_IP=$(kubectl get service product-service-w09e1 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-          ORDER_IP=$(kubectl get service order-service-w09e1 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-          
-          # Wait for IPs to be assigned
-          for i in $(seq 1 60); do
-            if [[ -n "$PRODUCT_IP" && -n "$ORDER_IP" ]]; then
-              break
-            fi
-            sleep 5
-            PRODUCT_IP=$(kubectl get service product-service-w09e1 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-            ORDER_IP=$(kubectl get service order-service-w09e1 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-          done
-          
-          echo "product_ip=http://$PRODUCT_IP:8000" >> $GITHUB_OUTPUT
-          echo "order_ip=http://$ORDER_IP:8001" >> $GITHUB_OUTPUT
+          # if your product/order services are ClusterIP, leave as ClusterIP references
+          PRODUCT_HOST="http://product-service.$K8S_NS.svc.cluster.local:8000"
+          ORDER_HOST="http://order-service.$K8S_NS.svc.cluster.local:8001"
 
-      - name: Deploy Frontend to Staging
+          echo "product_ip=${PRODUCT_HOST}" >> $GITHUB_OUTPUT
+          echo "order_ip=${ORDER_HOST}"   >> $GITHUB_OUTPUT
+
+      - name: Deploy frontend (staging)
         run: |
-          echo "Deploying frontend to staging..."
-          # Update frontend configuration with backend IPs
+          # inject backend URLs into frontend sources (if that's how your app is wired)
           sed -i "s|_PRODUCT_API_URL_|${{ steps.get-backend-ips.outputs.product_ip }}|g" frontend/main.js
           sed -i "s|_ORDER_API_URL_|${{ steps.get-backend-ips.outputs.order_ip }}|g" frontend/main.js
-          
-          # Build and push updated frontend
-          DOCKER_BUILDKIT=0 docker build -t wk09cacrbinil.azurecr.io/frontend:dev-latest ./frontend/
-          docker push wk09cacrbinil.azurecr.io/frontend:dev-latest
-          
-          # Update and deploy frontend
-          sed -i "s|image: .*frontend:.*|image: wk09cacrbinil.azurecr.io/frontend:dev-latest|g" k8s/frontend.yaml
-          kubectl apply -f k8s/frontend.yaml
 
-      - name: Run Integration Tests
-        run: |
-          echo "Running integration tests against staging environment..."
-          # Wait for frontend to be ready
-          kubectl wait --for=condition=available --timeout=300s deployment/frontend
-          
-          # Get frontend IP
-          FRONTEND_IP=$(kubectl get service frontend-w09e1 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-          echo "Frontend available at: http://$FRONTEND_IP"
-          
-          # Basic health checks
-          sleep 30  # Wait for services to be fully ready
-          
-          # Test product service
-          curl -f http://${{ steps.get-backend-ips.outputs.product_ip }}/health || exit 1
-          echo "Product service health check passed"
-          
-          # Test order service  
-          curl -f http://${{ steps.get-backend-ips.outputs.order_ip }}/health || exit 1
-          echo "Order service health check passed"
+          # rebuild with injected config and push
+          DOCKER_BUILDKIT=0 docker build -t $ACR_LOGIN_SERVER/frontend:dev-latest ./frontend/
+          az acr login --name $ACR_NAME
+          docker push $ACR_LOGIN_SERVER/frontend:dev-latest
 
-      - name: Notify Deployment Status
-        if: always()
+          # update manifest and apply
+          sed -i "s|image: .*frontend:.*|image: $ACR_LOGIN_SERVER/frontend:dev-latest|g" k8s/frontend.yaml
+          kubectl apply -f k8s/frontend.yaml -n $K8S_NS
+
+      - name: Wait for frontend
         run: |
-          if [ "${{ job.status }}" == "success" ]; then
-            echo "✅ Staging deployment successful!"
-            echo "Frontend: http://$(kubectl get service frontend-w09e1 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')"
-            echo "Product API: ${{ steps.get-backend-ips.outputs.product_ip }}"
-            echo "Order API: ${{ steps.get-backend-ips.outputs.order_ip }}"
-          else
-            echo "❌ Staging deployment failed!"
-          fi
+          kubectl rollout status deploy/frontend -n $K8S_NS --timeout=300s
+          kubectl get svc frontend -n $K8S_NS -o wide
+
+      - name: Smoke checks
+        run: |
+          # If frontend is a LoadBalancer:
+          FRONTEND_IP=$(kubectl get svc frontend -n $K8S_NS -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          echo "Frontend at: http://$FRONTEND_IP"
+          # basic health checks via backends
+          curl -f ${{ steps.get-backend-ips.outputs.product_ip }}/health
+          curl -f ${{ steps.get-backend-ips.outputs.order_ip }}/health
+          echo "All good ✅"
