@@ -217,10 +217,13 @@ jobs:
 
       - name: Smoke checks
         run: |
-          # If frontend is a LoadBalancer:
+          # Frontend external check from runner
           FRONTEND_IP=$(kubectl get svc frontend-w09e1 -n $K8S_NS -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
           echo "Frontend at: http://$FRONTEND_IP"
-          # basic health checks via backends
-          curl -f ${{ steps.get-backend-ips.outputs.product_ip }}/health
-          curl -f ${{ steps.get-backend-ips.outputs.order_ip }}/health
+          curl -f "http://$FRONTEND_IP" || exit 1
+
+          # In-cluster backend health checks (runner can't resolve cluster DNS)
+          kubectl run curl-test --rm -i -n $K8S_NS --restart=Never \
+            --image=curlimages/curl:8.6.0 -- \
+            sh -c "curl -sf '${{ steps.get-backend-ips.outputs.product_ip }}'/health && curl -sf '${{ steps.get-backend-ips.outputs.order_ip }}'/health"
           echo "All good ✅"
