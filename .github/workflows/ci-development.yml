@@ -91,17 +91,17 @@ jobs:
 
       - name: Build & Push Product Service
         run: |
-          DOCKER_BUILDKIT=0 docker build -t $ACR_LOGIN_SERVER/product_service:dev-${{ env.IMAGE_TAG }} ./backend/product_service/
-          DOCKER_BUILDKIT=0 docker build -t $ACR_LOGIN_SERVER/product_service:dev-latest ./backend/product_service/
-          docker push $ACR_LOGIN_SERVER/product_service:dev-${{ env.IMAGE_TAG }}
-          docker push $ACR_LOGIN_SERVER/product_service:dev-latest
+          docker build -t wk09cacrbinil.azurecr.io/product_service:dev-${{ env.IMAGE_TAG }} ./backend/product_service/
+          docker build -t wk09cacrbinil.azurecr.io/product_service:dev-latest ./backend/product_service/
+          docker push wk09cacrbinil.azurecr.io/product_service:dev-${{ env.IMAGE_TAG }}
+          docker push wk09cacrbinil.azurecr.io/product_service:dev-latest
 
       - name: Build & Push Order Service
         run: |
-          DOCKER_BUILDKIT=0 docker build -t $ACR_LOGIN_SERVER/order_service:dev-${{ env.IMAGE_TAG }} ./backend/order_service/
-          DOCKER_BUILDKIT=0 docker build -t $ACR_LOGIN_SERVER/order_service:dev-latest ./backend/order_service/
-          docker push $ACR_LOGIN_SERVER/order_service:dev-${{ env.IMAGE_TAG }}
-          docker push $ACR_LOGIN_SERVER/order_service:dev-latest
+          docker build -t wk09cacrbinil.azurecr.io/order_service:dev-${{ env.IMAGE_TAG }} ./backend/order_service/
+          docker build -t wk09cacrbinil.azurecr.io/order_service:dev-latest ./backend/order_service/
+          docker push wk09cacrbinil.azurecr.io/order_service:dev-${{ env.IMAGE_TAG }}
+          docker push wk09cacrbinil.azurecr.io/order_service:dev-latest
 
       - name: Azure Logout
         if: always()
@@ -124,10 +124,10 @@ jobs:
 
       - name: Build & Push Frontend
         run: |
-          DOCKER_BUILDKIT=0 docker build -t $ACR_LOGIN_SERVER/frontend:dev-${{ env.IMAGE_TAG }} ./frontend/
-          DOCKER_BUILDKIT=0 docker build -t $ACR_LOGIN_SERVER/frontend:dev-latest ./frontend/
-          docker push $ACR_LOGIN_SERVER/frontend:dev-${{ env.IMAGE_TAG }}
-          docker push $ACR_LOGIN_SERVER/frontend:dev-latest
+          docker build -t wk09cacrbinil.azurecr.io/frontend:dev-${{ env.IMAGE_TAG }} ./frontend/
+          docker build -t wk09cacrbinil.azurecr.io/frontend:dev-latest ./frontend/
+          docker push wk09cacrbinil.azurecr.io/frontend:dev-${{ env.IMAGE_TAG }}
+          docker push wk09cacrbinil.azurecr.io/frontend:dev-latest
 
       - name: Azure Logout
         if: always()
@@ -163,8 +163,8 @@ jobs:
         run: |
           cd k8s/
           # point to dev-latest
-          sed -i "s|image: .*product_service:.*|image: $ACR_LOGIN_SERVER/product_service:dev-latest|g" product-service.yaml
-          sed -i "s|image: .*order_service:.*|image: $ACR_LOGIN_SERVER/order_service:dev-latest|g" order-service.yaml
+          sed -i "s|image: .*product_service:.*|image: wk09cacrbinil.azurecr.io/product_service:dev-latest|g" product-service.yaml
+          sed -i "s|image: .*order_service:.*|image: wk09cacrbinil.azurecr.io/order_service:dev-latest|g" order-service.yaml
 
           kubectl apply -f configmaps.yaml -n $K8S_NS
           kubectl apply -f secrets.yaml -n $K8S_NS
@@ -198,12 +198,12 @@ jobs:
           sed -i "s|_ORDER_API_URL_|${{ steps.get-backend-ips.outputs.order_ip }}|g" frontend/main.js
 
           # rebuild with injected config and push
-          DOCKER_BUILDKIT=0 docker build -t $ACR_LOGIN_SERVER/frontend:dev-latest ./frontend/
+          docker build -t wk09cacrbinil.azurecr.io/frontend:dev-latest ./frontend/
           az acr login --name $ACR_NAME
-          docker push $ACR_LOGIN_SERVER/frontend:dev-latest
+          docker push wk09cacrbinil.azurecr.io/frontend:dev-latest
 
           # update manifest and apply
-          sed -i "s|image: .*frontend:.*|image: $ACR_LOGIN_SERVER/frontend:dev-latest|g" k8s/frontend.yaml
+          sed -i "s|image: .*frontend:.*|image: wk09cacrbinil.azurecr.io/frontend:dev-latest|g" k8s/frontend.yaml
           kubectl apply -f k8s/frontend.yaml -n $K8S_NS
 
       - name: Wait for frontend
