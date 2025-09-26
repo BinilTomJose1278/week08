@@ -43,22 +43,22 @@ jobs:
 
       - name: Build and Push Product Service Image
         run: |
-          docker build -t wk09cacrbinil.azurecr.io/product_service:prod-${{ env.IMAGE_TAG }} ./backend/product_service/
-          docker build -t wk09cacrbinil.azurecr.io/product_service:latest ./backend/product_service/
+          DOCKER_BUILDKIT=0 docker build -t wk09cacrbinil.azurecr.io/product_service:prod-${{ env.IMAGE_TAG }} ./backend/product_service/
+          DOCKER_BUILDKIT=0 docker build -t wk09cacrbinil.azurecr.io/product_service:latest ./backend/product_service/
           docker push wk09cacrbinil.azurecr.io/product_service:prod-${{ env.IMAGE_TAG }}
           docker push wk09cacrbinil.azurecr.io/product_service:latest
 
       - name: Build and Push Order Service Image
         run: |
-          docker build -t wk09cacrbinil.azurecr.io/order_service:prod-${{ env.IMAGE_TAG }} ./backend/order_service/
-          docker build -t wk09cacrbinil.azurecr.io/order_service:latest ./backend/order_service/
+          DOCKER_BUILDKIT=0 docker build -t wk09cacrbinil.azurecr.io/order_service:prod-${{ env.IMAGE_TAG }} ./backend/order_service/
+          DOCKER_BUILDKIT=0 docker build -t wk09cacrbinil.azurecr.io/order_service:latest ./backend/order_service/
           docker push wk09cacrbinil.azurecr.io/order_service:prod-${{ env.IMAGE_TAG }}
           docker push wk09cacrbinil.azurecr.io/order_service:latest
 
       - name: Build and Push Frontend Image
         run: |
-          docker build -t wk09cacrbinil.azurecr.io/frontend:prod-${{ env.IMAGE_TAG }} ./frontend/
-          docker build -t wk09cacrbinil.azurecr.io/frontend:latest ./frontend/
+          DOCKER_BUILDKIT=0 docker build -t wk09cacrbinil.azurecr.io/frontend:prod-${{ env.IMAGE_TAG }} ./frontend/
+          DOCKER_BUILDKIT=0 docker build -t wk09cacrbinil.azurecr.io/frontend:latest ./frontend/
           docker push wk09cacrbinil.azurecr.io/frontend:prod-${{ env.IMAGE_TAG }}
           docker push wk09cacrbinil.azurecr.io/frontend:latest
 
@@ -184,7 +184,7 @@ jobs:
       - name: Build and Push Updated Frontend Image
         run: |
           echo "Building and pushing updated frontend image..."
-          docker build -t wk09cacrbinil.azurecr.io/frontend:latest ./frontend/
+          DOCKER_BUILDKIT=0 docker build -t wk09cacrbinil.azurecr.io/frontend:latest ./frontend/
           docker push wk09cacrbinil.azurecr.io/frontend:latest
 
       - name: Setup Kubernetes Context

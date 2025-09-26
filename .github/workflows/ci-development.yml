@@ -98,15 +98,15 @@ jobs:
 
       - name: Build and Push Product Service Image
         run: |
-          docker build -t wk09cacrbinil.azurecr.io/product_service:dev-${{ env.IMAGE_TAG }} ./backend/product_service/
-          docker build -t wk09cacrbinil.azurecr.io/product_service:dev-latest ./backend/product_service/
+          DOCKER_BUILDKIT=0 docker build -t wk09cacrbinil.azurecr.io/product_service:dev-${{ env.IMAGE_TAG }} ./backend/product_service/
+          DOCKER_BUILDKIT=0 docker build -t wk09cacrbinil.azurecr.io/product_service:dev-latest ./backend/product_service/
           docker push wk09cacrbinil.azurecr.io/product_service:dev-${{ env.IMAGE_TAG }}
           docker push wk09cacrbinil.azurecr.io/product_service:dev-latest
 
       - name: Build and Push Order Service Image
         run: |
-          docker build -t wk09cacrbinil.azurecr.io/order_service:dev-${{ env.IMAGE_TAG }} ./backend/order_service/
-          docker build -t wk09cacrbinil.azurecr.io/order_service:dev-latest ./backend/order_service/
+          DOCKER_BUILDKIT=0 docker build -t wk09cacrbinil.azurecr.io/order_service:dev-${{ env.IMAGE_TAG }} ./backend/order_service/
+          DOCKER_BUILDKIT=0 docker build -t wk09cacrbinil.azurecr.io/order_service:dev-latest ./backend/order_service/
           docker push wk09cacrbinil.azurecr.io/order_service:dev-${{ env.IMAGE_TAG }}
           docker push wk09cacrbinil.azurecr.io/order_service:dev-latest
 
@@ -133,8 +133,8 @@ jobs:
 
       - name: Build and Push Frontend Image
         run: |
-          docker build -t wk09cacrbinil.azurecr.io/frontend:dev-${{ env.IMAGE_TAG }} ./frontend/
-          docker build -t wk09cacrbinil.azurecr.io/frontend:dev-latest ./frontend/
+          DOCKER_BUILDKIT=0 docker build -t wk09cacrbinil.azurecr.io/frontend:dev-${{ env.IMAGE_TAG }} ./frontend/
+          DOCKER_BUILDKIT=0 docker build -t wk09cacrbinil.azurecr.io/frontend:dev-latest ./frontend/
           docker push wk09cacrbinil.azurecr.io/frontend:dev-${{ env.IMAGE_TAG }}
           docker push wk09cacrbinil.azurecr.io/frontend:dev-latest
 
@@ -205,7 +205,7 @@ jobs:
           sed -i "s|_ORDER_API_URL_|${{ steps.get-backend-ips.outputs.order_ip }}|g" frontend/main.js
           
           # Build and push updated frontend
-          docker build -t wk09cacrbinil.azurecr.io/frontend:dev-latest ./frontend/
+          DOCKER_BUILDKIT=0 docker build -t wk09cacrbinil.azurecr.io/frontend:dev-latest ./frontend/
           docker push wk09cacrbinil.azurecr.io/frontend:dev-latest
           
           # Update and deploy frontend
