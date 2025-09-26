@@ -3,7 +3,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: order-db-deployment-w08e1 # Deployment name matches
+  name: order-db-deployment-w09e1 # Deployment name matches
   labels:
     app: order-db
 spec:
@@ -25,17 +25,17 @@ spec:
         - name: POSTGRES_DB
           valueFrom:
             configMapKeyRef:
-              name: ecomm-config-w08e1 # ConfigMap name matches
+              name: ecomm-config-w09e1 # ConfigMap name matches
               key: ORDERS_DB_NAME # Point to the order database name
         - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
-              name: ecomm-secrets-w08e1 # Secret name matches
+              name: ecomm-secrets-w09e1 # Secret name matches
               key: POSTGRES_USER
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: ecomm-secrets-w08e1 # Secret name matches
+              name: ecomm-secrets-w09e1 # Secret name matches
               key: POSTGRES_PASSWORD
 ---
 apiVersion: v1

@@ -24,26 +24,26 @@ spec:
         - containerPort: 8000
         env:
         - name: POSTGRES_HOST
-          value: order-db-service-w08e1
+          value: order-db-service-w09e1
         - name: POSTGRES_DB
           valueFrom:
             configMapKeyRef:
-              name: ecomm-config-w08e1
+              name: ecomm-config-w09e1
               key: ORDERS_DB_NAME
         - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
-              name: ecomm-secrets-w08e1
+              name: ecomm-secrets-w09e1
               key: POSTGRES_USER
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: ecomm-secrets-w08e1
+              name: ecomm-secrets-w09e1
               key: POSTGRES_PASSWORD
         - name: PRODUCT_SERVICE_URL
           valueFrom:
             configMapKeyRef:
-              name: ecomm-config-w08e1
+              name: ecomm-config-w09e1
               key: PRODUCT_SERVICE_URL
 ---
 apiVersion: v1
