@@ -4,10 +4,6 @@ name: CI - Development Branch
 on:
   push:
     branches: [ development ]
-    paths:
-      - 'backend/**'
-      - 'frontend/**'
-      - '.github/workflows/ci-development.yml'
 
 env:
   ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
@@ -17,7 +13,6 @@ jobs:
   # Backend Services Testing and Building
   test-and-build-backend:
     runs-on: ubuntu-latest
-    if: contains(github.event.head_commit.modified, 'backend/') || contains(github.event.head_commit.added, 'backend/')
     
     services:
       product_db:
@@ -117,7 +112,6 @@ jobs:
   # Frontend Building
   build-frontend:
     runs-on: ubuntu-latest
-    if: contains(github.event.head_commit.modified, 'frontend/') || contains(github.event.head_commit.added, 'frontend/')
 
     steps:
       - name: Checkout repository
@@ -146,7 +140,6 @@ jobs:
   deploy-to-staging:
     runs-on: ubuntu-latest
     needs: [test-and-build-backend, build-frontend]
-    if: always() && (needs.test-and-build-backend.result == 'success' || needs.build-frontend.result == 'success')
     environment: Staging
     
     steps:
@@ -161,6 +154,15 @@ jobs:
       - name: Setup Kubernetes Context
         run: |
           az aks get-credentials --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} --name ${{ secrets.AKS_CLUSTER_NAME }} --overwrite-existing
+          
+      - name: Verify ACR Images
+        run: |
+          echo "Checking if images exist in ACR..."
+          az acr repository list --name wk09cacrbinil --output table
+          echo "Product service images:"
+          az acr repository show-tags --name wk09cacrbinil --repository product_service --output table
+          echo "Order service images:"
+          az acr repository show-tags --name wk09cacrbinil --repository order_service --output table
 
       - name: Deploy Backend Infrastructure to Staging
         run: |
@@ -180,8 +182,30 @@ jobs:
       - name: Wait for Backend Services
         run: |
           echo "Waiting for backend services to be ready..."
-          kubectl wait --for=condition=available --timeout=300s deployment/product-service-w09e1
-          kubectl wait --for=condition=available --timeout=300s deployment/order-service-w09e1
+          
+          # Check pod status first
+          echo "Checking pod status..."
+          kubectl get pods -l app=product-service
+          kubectl get pods -l app=order-service
+          
+          # Check for any error events
+          echo "Checking for error events..."
+          kubectl get events --sort-by=.lastTimestamp | tail -10
+          
+          # Wait for deployments with better error handling
+          echo "Waiting for product service..."
+          kubectl wait --for=condition=available --timeout=300s deployment/product-service-w09e1 || {
+            echo "Product service deployment failed. Checking logs..."
+            kubectl logs -l app=product-service --tail=50
+            exit 1
+          }
+          
+          echo "Waiting for order service..."
+          kubectl wait --for=condition=available --timeout=300s deployment/order-service-w09e1 || {
+            echo "Order service deployment failed. Checking logs..."
+            kubectl logs -l app=order-service --tail=50
+            exit 1
+          }
 
       - name: Get Backend Service IPs
         id: get-backend-ips
