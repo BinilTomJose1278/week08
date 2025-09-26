@@ -94,21 +94,21 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Login to Azure Container Registry
-        run: az acr login --name ${{ vars.ACR_NAME }}
+        run: az acr login --name wk09cacrbinil
 
       - name: Build and Push Product Service Image
         run: |
-          docker build -t ${{ vars.ACR_NAME }}.azurecr.io/product_service:dev-${{ env.IMAGE_TAG }} ./backend/product_service/
-          docker build -t ${{ vars.ACR_NAME }}.azurecr.io/product_service:dev-latest ./backend/product_service/
-          docker push ${{ vars.ACR_NAME }}.azurecr.io/product_service:dev-${{ env.IMAGE_TAG }}
-          docker push ${{ vars.ACR_NAME }}.azurecr.io/product_service:dev-latest
+          docker build -t wk09cacrbinil.azurecr.io/product_service:dev-${{ env.IMAGE_TAG }} ./backend/product_service/
+          docker build -t wk09cacrbinil.azurecr.io/product_service:dev-latest ./backend/product_service/
+          docker push wk09cacrbinil.azurecr.io/product_service:dev-${{ env.IMAGE_TAG }}
+          docker push wk09cacrbinil.azurecr.io/product_service:dev-latest
 
       - name: Build and Push Order Service Image
         run: |
-          docker build -t ${{ vars.ACR_NAME }}.azurecr.io/order_service:dev-${{ env.IMAGE_TAG }} ./backend/order_service/
-          docker build -t ${{ vars.ACR_NAME }}.azurecr.io/order_service:dev-latest ./backend/order_service/
-          docker push ${{ vars.ACR_NAME }}.azurecr.io/order_service:dev-${{ env.IMAGE_TAG }}
-          docker push ${{ vars.ACR_NAME }}.azurecr.io/order_service:dev-latest
+          docker build -t wk09cacrbinil.azurecr.io/order_service:dev-${{ env.IMAGE_TAG }} ./backend/order_service/
+          docker build -t wk09cacrbinil.azurecr.io/order_service:dev-latest ./backend/order_service/
+          docker push wk09cacrbinil.azurecr.io/order_service:dev-${{ env.IMAGE_TAG }}
+          docker push wk09cacrbinil.azurecr.io/order_service:dev-latest
 
       - name: Logout from Azure
         run: az logout
@@ -129,14 +129,14 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Login to Azure Container Registry
-        run: az acr login --name ${{ vars.ACR_NAME }}
+        run: az acr login --name wk09cacrbinil
 
       - name: Build and Push Frontend Image
         run: |
-          docker build -t ${{ vars.ACR_NAME }}.azurecr.io/frontend:dev-${{ env.IMAGE_TAG }} ./frontend/
-          docker build -t ${{ vars.ACR_NAME }}.azurecr.io/frontend:dev-latest ./frontend/
-          docker push ${{ vars.ACR_NAME }}.azurecr.io/frontend:dev-${{ env.IMAGE_TAG }}
-          docker push ${{ vars.ACR_NAME }}.azurecr.io/frontend:dev-latest
+          docker build -t wk09cacrbinil.azurecr.io/frontend:dev-${{ env.IMAGE_TAG }} ./frontend/
+          docker build -t wk09cacrbinil.azurecr.io/frontend:dev-latest ./frontend/
+          docker push wk09cacrbinil.azurecr.io/frontend:dev-${{ env.IMAGE_TAG }}
+          docker push wk09cacrbinil.azurecr.io/frontend:dev-latest
 
       - name: Logout from Azure
         run: az logout
@@ -161,8 +161,8 @@ jobs:
           echo "Deploying backend infrastructure to staging..."
           cd k8s/
           # Update image tags for staging
-          sed -i "s|image: .*product_service:.*|image: ${{ vars.ACR_NAME }}.azurecr.io/product_service:dev-latest|g" product-service.yaml
-          sed -i "s|image: .*order_service:.*|image: ${{ vars.ACR_NAME }}.azurecr.io/order_service:dev-latest|g" order-service.yaml
+          sed -i "s|image: .*product_service:.*|image: wk09cacrbinil.azurecr.io/product_service:dev-latest|g" product-service.yaml
+          sed -i "s|image: .*order_service:.*|image: wk09cacrbinil.azurecr.io/order_service:dev-latest|g" order-service.yaml
           
           kubectl apply -f configmaps.yaml
           kubectl apply -f secrets.yaml
@@ -205,11 +205,11 @@ jobs:
           sed -i "s|_ORDER_API_URL_|${{ steps.get-backend-ips.outputs.order_ip }}|g" frontend/main.js
           
           # Build and push updated frontend
-          docker build -t ${{ vars.ACR_NAME }}.azurecr.io/frontend:dev-latest ./frontend/
-          docker push ${{ vars.ACR_NAME }}.azurecr.io/frontend:dev-latest
+          docker build -t wk09cacrbinil.azurecr.io/frontend:dev-latest ./frontend/
+          docker push wk09cacrbinil.azurecr.io/frontend:dev-latest
           
           # Update and deploy frontend
-          sed -i "s|image: .*frontend:.*|image: ${{ vars.ACR_NAME }}.azurecr.io/frontend:dev-latest|g" k8s/frontend.yaml
+          sed -i "s|image: .*frontend:.*|image: wk09cacrbinil.azurecr.io/frontend:dev-latest|g" k8s/frontend.yaml
           kubectl apply -f k8s/frontend.yaml
 
       - name: Run Integration Tests
