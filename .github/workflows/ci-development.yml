@@ -129,8 +129,10 @@ jobs:
 
       - name: Build and Push Frontend Image
         run: |
-          # Login to ACR
-          az acr login --name wk09cacrbinil
+          # Get ACR credentials and login to Docker
+          ACR_USERNAME=$(az acr credential show --name wk09cacrbinil --query "username" -o tsv)
+          ACR_PASSWORD=$(az acr credential show --name wk09cacrbinil --query "passwords[0].value" -o tsv)
+          echo $ACR_PASSWORD | docker login wk09cacrbinil.azurecr.io --username $ACR_USERNAME --password-stdin
           
           # Build and push images
           DOCKER_BUILDKIT=0 docker build -t wk09cacrbinil.azurecr.io/frontend:dev-${{ env.IMAGE_TAG }} ./frontend/
