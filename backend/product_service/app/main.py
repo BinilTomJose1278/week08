@@ -475,5 +475,3 @@ async def deduct_product_stock(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Could not deduct stock.",
         )
-#   T e s t   s t a g i n g   d e p l o y m e n t  
- 
